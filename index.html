@@ -1,0 +1,190 @@
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:#fff;font-family:system-ui,-apple-system,sans-serif;padding:4px;}
+canvas{display:block;}
+#cv{border-radius:12px;border:1.5px solid #e8e8e8;touch-action:none;width:100%;height:54vh;min-height:340px;}
+.fml{font-size:13px;padding:10px 16px;border-radius:20px;background:#f5f5f5;border:1.5px solid #d0d0d0;color:#2c2c2a;margin:6px 0;font-family:ui-monospace,monospace;line-height:1.7;}
+.row{display:flex;align-items:center;gap:8px;margin:6px 0;flex-wrap:wrap;}
+.pill{font-size:13px;font-weight:500;color:#2c2c2a;background:#f5f5f5;border:1.5px solid #d0d0d0;border-radius:20px;padding:6px 14px;white-space:nowrap;}
+.btn{padding:7px 16px;border-radius:20px;font-size:13px;font-weight:500;cursor:pointer;border:1.5px solid #d0d0d0;background:#fff;color:#2c2c2a;}
+.btn.on{border-color:#185fa5;background:#e6f1fb;color:#185fa5;}
+.btn.nav{font-weight:600;}
+.val{min-width:56px;text-align:center;font-size:13px;font-weight:500;color:#2c2c2a;background:#f5f5f5;border:1.5px solid #d0d0d0;border-radius:20px;padding:5px 10px;}
+.info{font-size:12px;padding:8px 14px;border-radius:20px;background:#f5f5f5;border:1.5px solid #d0d0d0;color:#555;margin:6px 0;font-family:ui-monospace,monospace;line-height:1.8;}
+input[type=range]{flex:1;min-width:100px;}
+#menu h1{font-size:20px;font-weight:600;color:#2c2c2a;margin:10px 4px 2px;}
+#menu p.sub{font-size:13px;color:#888;margin:0 4px 14px;}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:14px;padding-bottom:20px;}
+.card{border:1.5px solid #e8e8e8;border-radius:12px;overflow:hidden;cursor:pointer;background:#fff;transition:border-color .15s, box-shadow .15s, transform .15s;}
+.card:hover{border-color:#185fa5;box-shadow:0 4px 14px rgba(24,95,165,0.10);transform:translateY(-2px);}
+.card canvas{width:100%;height:auto;display:block;border-bottom:1.5px solid #f0f0f0;}
+.card .cap{padding:9px 12px 11px;}
+.card .t{font-size:13.5px;font-weight:600;color:#2c2c2a;line-height:1.3;}
+.card .lv{font-size:12px;margin-top:5px;display:inline-block;border-radius:20px;padding:2px 10px;border:1.5px solid;}
+.lv1{color:#0F6E56;border-color:#9FE1CB;background:#e7f6ef;}
+.lv2{color:#185fa5;border-color:#b5d4f4;background:#e6f1fb;}
+.lv3{color:#BA7517;border-color:#f5c88f;background:#fdf3e4;}
+.lv4{color:#a32d2d;border-color:#f09595;background:#fcebeb;}
+.num{font-size:11px;color:#9aa0a6;float:right;margin-top:6px;}
+</style>
+
+<div id="menu">
+  <h1>Moments de force — 9 exercices animés</h1>
+  <p class="sub">Clique sur un exercice pour l'ouvrir. La difficulté monte progressivement (★ → ★★★★★).</p>
+  <div class="grid" id="grid"></div>
+</div>
+
+<div id="exo" style="display:none;">
+  <div class="row">
+    <button class="btn nav" onclick="backMenu()">☰ Tous les exercices</button>
+    <button class="btn nav" onclick="go(-1)">◀</button>
+    <span class="pill" id="cnt" style="border-color:#b5d4f4;color:#185fa5;"></span>
+    <button class="btn nav" onclick="go(1)">▶</button>
+  </div>
+  <canvas id="cv"></canvas>
+  <div class="fml" id="stmt"></div>
+  <div class="row"><button class="btn" id="bSol" onclick="toggleSol()">Voir la solution</button></div>
+  <div class="row" id="rowSl" style="display:none;">
+    <span class="pill" id="slLab" style="color:#BA7517;border-color:#f5c88f;"></span>
+    <input type="range" id="sl" style="accent-color:#BA7517;">
+    <span class="val" id="slV" style="color:#BA7517;border-color:#f5c88f;"></span>
+  </div>
+  <div class="info" id="info"></div>
+</div>
+
+<script>
+const cvMain=document.getElementById('cv');let ctx=cvMain.getContext('2d');
+const RED='#E24B4A',DRED='#a32d2d',BLUE='#378ADD',BLUE_D='#185fa5',GREEN='#1D9E75',ORANGE='#BA7517',VIOLET='#7F77DD',GREY='#9aa0a6',AX='#c8ccd0',INK='#3d3d3a';
+let W=0,H=0,dpr=1,idx=0,reveal=false,p=0,view='menu',tGlob=0;const D2R=Math.PI/180;
+function syncSize(){const r=cvMain.getBoundingClientRect();dpr=window.devicePixelRatio||1;
+  const nW=Math.round(r.width)||700,nH=Math.round(r.height)||360;
+  if(nW!==W||nH!==H||cvMain.width!==Math.round(nW*dpr)){W=nW;H=nH;cvMain.width=W*dpr;cvMain.height=H*dpr;}ctx.setTransform(dpr,0,0,dpr,0,0);}
+function arrow(x,y,vx,vy,col,lab,w,dash){const len=Math.hypot(vx,vy);if(len<2)return;const ex=x+vx,ey=y+vy;
+  ctx.strokeStyle=col;ctx.lineWidth=w||2.5;ctx.lineCap='round';if(dash)ctx.setLineDash(dash);
+  ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(ex,ey);ctx.stroke();ctx.setLineDash([]);
+  const hs=(w||2.5)*3.2,ang=Math.atan2(vy,vx);ctx.fillStyle=col;ctx.save();ctx.translate(ex,ey);ctx.rotate(ang);
+  ctx.beginPath();ctx.moveTo(hs,0);ctx.lineTo(-hs*0.7,-hs*0.55);ctx.lineTo(-hs*0.7,hs*0.55);ctx.closePath();ctx.fill();ctx.restore();
+  if(lab){ctx.font='600 13px system-ui';ctx.textAlign='center';ctx.fillStyle=col;ctx.fillText(lab,ex+vx/len*16,ey+vy/len*16+5);}}
+function pivot(x,y,lab){ctx.fillStyle=INK;ctx.beginPath();ctx.arc(x,y,5,0,7);ctx.fill();ctx.fillStyle=GREY;ctx.font='12px system-ui';ctx.textAlign='left';ctx.fillText(lab||'O',x+7,y+14);}
+function foot(O,A,dir){const AO={x:O.x-A.x,y:O.y-A.y},t=AO.x*dir.x+AO.y*dir.y;return {x:A.x+t*dir.x,y:A.y+t*dir.y,t:t};}
+function rot(u,ang){const c=Math.cos(ang),s=Math.sin(ang);return {x:u.x*c-u.y*s,y:u.x*s+u.y*c};}
+function cle(theta,showSol){const O={x:W*0.30,y:H*0.60},L=W*0.30,A={x:O.x+L,y:O.y};
+  ctx.strokeStyle=INK;ctx.lineWidth=6;ctx.beginPath();ctx.moveTo(O.x-10,O.y);ctx.lineTo(A.x,A.y);ctx.stroke();
+  ctx.fillStyle=INK;ctx.beginPath();ctx.arc(O.x,O.y,10,0,7);ctx.fill();ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(O.x,O.y,4,0,7);ctx.fill();
+  pivot(O.x,O.y);ctx.fillStyle=BLUE_D;ctx.font='600 12px system-ui';ctx.textAlign='center';ctx.fillText('d = 0,20 m',(O.x+A.x)/2,O.y+22);
+  const fdir=rot({x:-1,y:0},-theta*D2R);arrow(A.x,A.y,fdir.x*70,fdir.y*70,RED,'F̄ = 10 N',3.2);
+  if(theta>1){ctx.strokeStyle=GREY;ctx.lineWidth=1.3;ctx.beginPath();ctx.arc(A.x,A.y,24,Math.PI,Math.PI-theta*D2R,true);ctx.stroke();
+    ctx.fillStyle=GREY;ctx.font='11px system-ui';ctx.fillText(theta+'°',A.x-30,A.y-12);}
+  if(showSol){const H0=foot(O,A,fdir);
+    ctx.strokeStyle='#d8b0b0';ctx.setLineDash([5,5]);ctx.lineWidth=1.2;ctx.beginPath();ctx.moveTo(A.x-fdir.x*50,A.y-fdir.y*50);ctx.lineTo(H0.x+fdir.x*30,H0.y+fdir.y*30);ctx.stroke();ctx.setLineDash([]);
+    ctx.strokeStyle=GREEN;ctx.lineWidth=2.4;ctx.beginPath();ctx.moveTo(O.x,O.y);ctx.lineTo(H0.x,H0.y);ctx.stroke();
+    ctx.fillStyle=GREEN;ctx.font='600 11px ui-monospace';ctx.fillText('bras d·sinθ',(O.x+H0.x)/2,(O.y+H0.y)/2-6);}}
+
+const EX=[
+{t:'Clé perpendiculaire',s:1,st:'Une force <b style="color:#E24B4A">F = 10 N</b> est appliquée <b>perpendiculairement</b> à une clé, à d = 0,20 m de l\'axe. Calcule le moment.',
+ draw:function(pp){cle(90,pp>0);},sol:function(){return 'θ = 90° ⇒ sinθ = 1 : le bras de levier = toute la longueur. <b style="color:'+ORANGE+'">M = F·d = 10 × 0,20 = 2,0 N·m</b> — le cas le plus efficace.';}},
+{t:'Clé tirée de travers',s:2,st:'Même clé (d = 0,20 m), même force (10 N), mais tirée à <b>θ = 30°</b> par rapport au bras. Moment ?',
+ draw:function(pp){cle(30,pp>0);},sol:function(){return '<b style="color:'+ORANGE+'">M = F·d·sinθ = 10 × 0,20 × sin30° = 1,0 N·m</b>. Deux fois moins : tirer de travers gaspille une partie de la force.';}},
+{t:'Force alignée',s:1,st:'Pourquoi une force dirigée exactement <b>le long du bras</b> (θ = 0°) ne fait-elle jamais tourner ?',
+ draw:function(pp){cle(0,pp>0);},sol:function(){return 'Car <b>sin0° = 0 ⇒ M = 0</b>. La ligne d\'action passe par l\'axe : le bras de levier d = r·sin0° = 0. Aucune tendance à la rotation.';}},
+{t:'Balançoire',s:2,st:'Un enfant de poids <b>300 N</b> est à 1,5 m de l\'axe. À quelle distance placer un adulte de <b>600 N</b> pour équilibrer ?',
+ draw:function(pp){const O={x:W*0.5,y:H*0.52},k=W*0.11;
+   ctx.save();ctx.translate(O.x,O.y);ctx.rotate(pp>0?0:0.10);
+   ctx.strokeStyle=INK;ctx.lineWidth=5;ctx.beginPath();ctx.moveTo(-2.2*k,0);ctx.lineTo(2.2*k,0);ctx.stroke();
+   function kid(x,ww,col,lab){ctx.fillStyle=col+'22';ctx.strokeStyle=col;ctx.lineWidth=2;const s=14+ww*0.03;ctx.beginPath();ctx.roundRect(x-s/2,-s-2,s,s,4);ctx.fill();ctx.stroke();
+     arrow(x,-2,0,ww*0.06,col,'',2.4);ctx.fillStyle=col;ctx.font='600 11px ui-monospace';ctx.textAlign='center';ctx.fillText(lab,x,-s-8);}
+   kid(-1.5*k,300,DRED,'300 N');kid((pp>0?0.75:1.5)*k,600,BLUE_D,'600 N');ctx.restore();
+   ctx.fillStyle=INK;ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(O.x-14,O.y+24);ctx.lineTo(O.x,O.y);ctx.lineTo(O.x+14,O.y+24);ctx.stroke();pivot(O.x,O.y);
+   ctx.fillStyle=GREY;ctx.font='11px ui-monospace';ctx.textAlign='center';ctx.fillText('1,5 m',O.x-1.5*k/2,O.y+22);if(pp>0)ctx.fillText('0,75 m',O.x+0.75*k/2,O.y+22);},
+ sol:function(){return 'ΣM = 0 : 300 × 1,5 = 600 × d ⇒ <b style="color:'+ORANGE+'">d = 450 / 600 = 0,75 m</b>. Le plus lourd se place plus près de l\'axe (bras plus court).';}},
+{t:'Deux forces, sens opposés',s:3,st:'Sur une barre : <b style="color:#1D9E75">8 N à 0,5 m</b> (antihoraire) et <b style="color:#E24B4A">5 N à 0,9 m</b> (horaire). Moment résultant et sens ?',
+ draw:function(pp){const O={x:W*0.22,y:H*0.55},k=W*0.55;
+   ctx.strokeStyle=INK;ctx.lineWidth=5;ctx.beginPath();ctx.moveTo(O.x,O.y);ctx.lineTo(O.x+k,O.y);ctx.stroke();pivot(O.x,O.y);
+   arrow(O.x+0.45*k,O.y,0,-46,GREEN,'8 N',2.8);ctx.fillStyle=GREY;ctx.font='10px ui-monospace';ctx.textAlign='center';ctx.fillText('0,5 m',O.x+0.45*k,O.y+16);
+   arrow(O.x+0.81*k,O.y,0,46,RED,'5 N',2.8);ctx.fillText('0,9 m',O.x+0.81*k,O.y-10);
+   if(pp>0){ctx.fillStyle=DRED;ctx.font='600 13px system-ui';ctx.fillText('M = +8·0,5 − 5·0,9 = −0,5 N·m (horaire)',W*0.5,H*0.86);}},
+ sol:function(){return 'On additionne avec les signes : M = <b style="color:'+GREEN+'">+8×0,5</b> − <b style="color:'+RED+'">5×0,9</b> = 4,0 − 4,5 = <b style="color:'+ORANGE+'">−0,5 N·m</b>. Le signe − ⇒ résultante <b>horaire</b> : la 2ᵉ force l\'emporte.';}},
+{t:'Barre inclinée (le plus simple possible)',s:3,st:'Force <b style="color:#E24B4A">F̄ = 2 N</b> au bout d\'une barre de 4 cm inclinée à 30°, la force faisant 15° avec la verticale. Moment par rapport à O ?',
+ draw:function(pp){const O={x:W*0.60,y:H*0.66},L=W*0.24;
+   const rU={x:-Math.cos(30*D2R),y:-Math.sin(30*D2R)},A={x:O.x+rU.x*L,y:O.y+rU.y*L};
+   ctx.strokeStyle=AX;ctx.setLineDash([5,5]);ctx.lineWidth=1.2;ctx.beginPath();ctx.moveTo(O.x-L*1.1,O.y);ctx.lineTo(O.x+30,O.y);ctx.stroke();ctx.setLineDash([]);
+   ctx.strokeStyle=GREY;ctx.lineWidth=1.3;ctx.beginPath();ctx.arc(O.x,O.y,30,Math.PI,Math.PI+30*D2R,true);ctx.stroke();ctx.fillStyle=GREY;ctx.font='11px system-ui';ctx.textAlign='center';ctx.fillText('30°',O.x-42,O.y-8);
+   ctx.strokeStyle=INK;ctx.lineWidth=4;ctx.beginPath();ctx.moveTo(O.x,O.y);ctx.lineTo(A.x,A.y);ctx.stroke();
+   ctx.fillStyle=BLUE_D;ctx.font='600 12px system-ui';ctx.fillText('4 cm',(O.x+A.x)/2+6,(O.y+A.y)/2-8);
+   const fdir=rot(rU,-135*D2R);arrow(A.x,A.y,fdir.x*70,fdir.y*70,RED,'F̄',3.2);
+   ctx.fillStyle=INK;ctx.font='11px system-ui';ctx.fillText('15° / verticale',A.x-4,A.y-14);pivot(O.x,O.y);
+   if(pp>0){const H0=foot(O,A,fdir);ctx.strokeStyle='#d8b0b0';ctx.setLineDash([5,5]);ctx.lineWidth=1.2;ctx.beginPath();ctx.moveTo(A.x-fdir.x*40,A.y-fdir.y*40);ctx.lineTo(H0.x+fdir.x*30,H0.y+fdir.y*30);ctx.stroke();ctx.setLineDash([]);
+     ctx.strokeStyle=GREEN;ctx.lineWidth=2.4;ctx.beginPath();ctx.moveTo(O.x,O.y);ctx.lineTo(H0.x,H0.y);ctx.stroke();ctx.fillStyle=GREEN;ctx.font='600 11px ui-monospace';ctx.fillText('d = r·sin45°',(O.x+H0.x)/2-4,(O.y+H0.y)/2-6);
+     ctx.fillStyle=INK;ctx.font='600 12px system-ui';ctx.textAlign='center';ctx.fillText('45° = 30°+15°',A.x+fdir.x*40+20,A.y+fdir.y*40);}},
+ sol:function(){const M=2*0.04*Math.sqrt(2)/2;return 'Astuce : l\'angle entre la barre et la force vaut <b>30° + 15° = 45°</b>. Donc <b style="color:'+ORANGE+'">M = F·r·sin45° = 2 × 0,04 × (√2/2) = 0,04·√2 ≈ '+M.toFixed(3)+' N·m</b>.';}},
+{t:'Deux tiges soudées',s:5,st:'Deux tiges AB et BC (‖AB‖=‖BC‖=2a), soudées en B (135°), soumises en C à <b style="color:#E24B4A">F̄</b>. Quelle <b style="color:#7F77DD">F̄\'</b> ∥ BC, appliquée au milieu M de AB, a le même moment par rapport à A ?',
+ draw:function(pp){const A={x:W*0.22,y:H*0.82},a=W*0.11;
+   const uAB=rot({x:1,y:0},-35*D2R),B={x:A.x+uAB.x*2*a,y:A.y+uAB.y*2*a};
+   const uBC=rot(uAB,-135*D2R),C={x:B.x+uBC.x*2*a,y:B.y+uBC.y*2*a},M={x:(A.x+B.x)/2,y:(A.y+B.y)/2};
+   ctx.strokeStyle=INK;ctx.lineWidth=4;ctx.beginPath();ctx.moveTo(A.x,A.y);ctx.lineTo(B.x,B.y);ctx.lineTo(C.x,C.y);ctx.stroke();
+   ctx.fillStyle=INK;ctx.font='600 13px system-ui';ctx.textAlign='center';ctx.fillText('A',A.x-12,A.y+4);ctx.fillText('B',B.x-2,B.y-10);ctx.fillText('C',C.x+12,C.y+4);pivot(A.x,A.y,'A');
+   const fF=rot(uBC,-30*D2R);arrow(C.x,C.y,fF.x*60,fF.y*60,RED,'F̄',3);
+   ctx.fillStyle='#fff';ctx.strokeStyle=VIOLET;ctx.lineWidth=2;ctx.beginPath();ctx.arc(M.x,M.y,5,0,7);ctx.fill();ctx.stroke();ctx.fillStyle=VIOLET;ctx.font='600 12px system-ui';ctx.fillText('M',M.x-12,M.y-8);
+   if(pp>0){arrow(M.x,M.y,uBC.x*54,uBC.y*54,VIOLET,"F̄'",3);
+     const H0=foot(A,C,fF);ctx.strokeStyle=GREEN;ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(A.x,A.y);ctx.lineTo(H0.x,H0.y);ctx.stroke();
+     const H1=foot(A,M,uBC);ctx.strokeStyle='#0F6E56';ctx.setLineDash([4,3]);ctx.beginPath();ctx.moveTo(A.x,A.y);ctx.lineTo(H1.x,H1.y);ctx.stroke();ctx.setLineDash([]);}},
+ sol:function(){return 'On égale les moments par rapport à A. <b style="color:'+GREEN+'">M_A(F̄) = F·d_F</b> (d_F = distance ⊥ de A à la ligne de F̄) et <b style="color:'+VIOLET+'">M_A(F̄\') = F\'·d\'</b> (d\' = distance ⊥ de A à la droite ∥ BC passant par M). Égalité ⇒ <b>F\' = F · d_F / d\'</b>. Exercice symbolique : comparer les deux bras de levier mesurés depuis A (en fonction de a).';}},
+{t:'Mât et câble',s:4,st:'Mât OA. La traction <b style="color:#E24B4A">T̄</b> dans le câble AB a un moment par rapport à O de norme <b>72 kN·m</b>. Détermine ‖T̄‖. (12 m, 60°, mât de 30 m.)',
+ draw:function(pp){const O={x:W*0.50,y:H*0.74},scl=Math.min(W,H)*0.020;
+   const A={x:O.x+30*Math.cos(60*D2R)*scl,y:O.y-30*Math.sin(60*D2R)*scl},B={x:O.x-12*scl,y:O.y};
+   ctx.strokeStyle=AX;ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(B.x-30,O.y);ctx.lineTo(O.x+40,O.y);ctx.stroke();
+   ctx.strokeStyle=INK;ctx.lineWidth=4;ctx.beginPath();ctx.moveTo(O.x,O.y);ctx.lineTo(A.x,A.y);ctx.stroke();
+   ctx.strokeStyle='#7f8790';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(A.x,A.y);ctx.lineTo(B.x,B.y);ctx.stroke();
+   const uAB={x:(B.x-A.x),y:(B.y-A.y)},lab=Math.hypot(uAB.x,uAB.y);uAB.x/=lab;uAB.y/=lab;arrow(A.x,A.y,uAB.x*54,uAB.y*54,RED,'T̄',3);
+   pivot(O.x,O.y);ctx.fillStyle=INK;ctx.font='600 12px system-ui';ctx.textAlign='center';ctx.fillText('A',A.x+10,A.y);ctx.fillText('B',B.x-12,B.y+4);
+   ctx.fillStyle=GREY;ctx.font='11px system-ui';ctx.fillText('12 m',(O.x+B.x)/2,O.y+16);ctx.fillText('60°',O.x+22,O.y-8);ctx.fillText('30 m',(O.x+A.x)/2+14,(O.y+A.y)/2);
+   if(pp>0){const H0=foot(O,A,uAB);ctx.strokeStyle=GREEN;ctx.lineWidth=2.4;ctx.beginPath();ctx.moveTo(O.x,O.y);ctx.lineTo(H0.x,H0.y);ctx.stroke();ctx.fillStyle=GREEN;ctx.font='600 11px ui-monospace';ctx.fillText('d',(O.x+H0.x)/2+8,(O.y+H0.y)/2);}},
+ sol:function(){const Aw={x:30*Math.cos(60*D2R),y:30*Math.sin(60*D2R)};const ux=-12-Aw.x,uy=-Aw.y,l=Math.hypot(ux,uy);const cross=Math.abs((-Aw.x)*uy-(-Aw.y)*ux)/l;const T=72/cross;
+   return 'Méthode simple : <b style="color:'+ORANGE+'">|M_O(T̄)| = ‖T̄‖ · d</b>, d = distance ⊥ de O à la droite AB. On lit d (≈ '+cross.toFixed(1)+' m avec ces cotes), puis <b>‖T̄‖ = 72 / '+cross.toFixed(1)+' ≈ '+T.toFixed(1)+' kN</b>. Le point clé : trouver d, pas décomposer T̄.';}},
+{t:'Poutre coudée',s:4,sl:{lab:'θ',min:0,max:90,step:1,val:30,unit:'°'},
+ st:'Poutre coudée ABC (AB = 0,8 m horizontal, BC = 0,6 m vertical). <b style="color:#E24B4A">F̄ = 2 kN</b> en C fait l\'angle θ avec Oy. Trouve θ pour (a) M_A = 0, (b) |M_A| = 1,1 kN·m.',
+ draw:function(pp){const th=this.sl.val*D2R,sc=Math.min(W,H)*0.42;
+   const A={x:W*0.36,y:H*0.24},B={x:A.x+0.8*sc,y:A.y},C={x:B.x,y:B.y+0.6*sc};
+   ctx.strokeStyle=INK;ctx.lineWidth=1;for(let i=0;i<7;i++){ctx.beginPath();ctx.moveTo(A.x-14,A.y-10+i*4);ctx.lineTo(A.x,A.y-16+i*4);ctx.stroke();}
+   ctx.strokeStyle=INK;ctx.lineWidth=4;ctx.beginPath();ctx.moveTo(A.x,A.y);ctx.lineTo(B.x,B.y);ctx.lineTo(C.x,C.y);ctx.stroke();
+   ctx.fillStyle=INK;ctx.font='600 13px system-ui';ctx.textAlign='center';ctx.fillText('A',A.x-10,A.y-6);ctx.fillText('B',B.x+10,B.y-6);ctx.fillText('C',C.x+12,C.y+4);
+   ctx.fillStyle=GREY;ctx.font='11px system-ui';ctx.fillText('0,8 m',(A.x+B.x)/2,A.y-8);ctx.fillText('0,6 m',B.x+16,(B.y+C.y)/2);pivot(A.x,A.y,'A');
+   ctx.strokeStyle=AX;ctx.setLineDash([3,3]);ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(C.x,C.y);ctx.lineTo(C.x,C.y-46);ctx.stroke();ctx.setLineDash([]);
+   const fdir={x:-Math.sin(th),y:-Math.cos(th)};arrow(C.x,C.y,fdir.x*64,fdir.y*64,RED,'F̄',3);
+   ctx.strokeStyle=GREY;ctx.lineWidth=1.2;ctx.beginPath();ctx.arc(C.x,C.y,26,-Math.PI/2,-Math.PI/2-th,true);ctx.stroke();ctx.fillStyle=GREY;ctx.fillText('θ',C.x-14,C.y-24);
+   if(pp>0){const H0=foot(A,C,fdir);ctx.strokeStyle='#d8b0b0';ctx.setLineDash([5,5]);ctx.lineWidth=1.1;ctx.beginPath();ctx.moveTo(C.x-fdir.x*40,C.y-fdir.y*40);ctx.lineTo(H0.x+fdir.x*20,H0.y+fdir.y*20);ctx.stroke();ctx.setLineDash([]);
+     ctx.strokeStyle=GREEN;ctx.lineWidth=2.2;ctx.beginPath();ctx.moveTo(A.x,A.y);ctx.lineTo(H0.x,H0.y);ctx.stroke();}
+   const MA=1.6*Math.cos(th)-1.2*Math.sin(th);ctx.fillStyle=Math.abs(MA)<0.05?GREEN:INK;ctx.font='600 13px ui-monospace';ctx.textAlign='left';ctx.fillText('M_A = '+MA.toFixed(2)+' kN·m',W*0.06,H*0.92);},
+ sol:function(){return 'Avec A=(0,0), C=(0,8 ; −0,6) et F̄=(−2sinθ ; 2cosθ) : <b>M_A = 1,6·cosθ − 1,2·sinθ</b> (kN·m).<br><b style="color:'+GREEN+'">(a) M_A = 0</b> ⇒ tanθ = 4/3 ⇒ <b>θ ≈ 53,1°</b>.<br><b style="color:'+ORANGE+'">(b) |M_A| = 1,1</b> : 1,6cosθ−1,2sinθ = 2·cos(θ+36,9°) ⇒ <b>θ ≈ 19,8°</b> ou <b>θ ≈ 86,5°</b>. (Max = 2 kN·m quand F̄ ⟂ AC.)';}}
+];
+
+const LV=[['Niveau ★','lv1'],['Niveau ★★','lv1'],['Niveau ★★★','lv2'],['Niveau ★★★★','lv3'],['Niveau ★★★★★','lv4']];
+function buildMenu(){const grid=document.getElementById('grid'),mainCtx=ctx,mW=W,mH=H;
+  EX.forEach(function(ex,i){const card=document.createElement('div');card.className='card';
+    const pcv=document.createElement('canvas');pcv.width=520;pcv.height=330;
+    ctx=pcv.getContext('2d');W=520;H=330;ctx.fillStyle='#fff';ctx.fillRect(0,0,W,H);
+    try{ex.draw(1);}catch(e){}
+    const cap=document.createElement('div');cap.className='cap';const lv=LV[ex.s-1];
+    cap.innerHTML='<span class="num">n°'+(i+1)+'</span><div class="t">'+ex.t+'</div><span class="lv '+lv[1]+'">'+lv[0]+'</span>';
+    card.appendChild(pcv);card.appendChild(cap);card.addEventListener('click',function(){openEx(i);});grid.appendChild(card);});
+  ctx=mainCtx;W=mW;H=mH;}
+function openEx(i){idx=i;view='exo';reveal=false;p=0;
+  document.getElementById('menu').style.display='none';document.getElementById('exo').style.display='block';
+  document.getElementById('bSol').className='btn';document.getElementById('bSol').textContent='Voir la solution';
+  W=0;H=0;refreshUI();window.scrollTo(0,0);}
+function backMenu(){view='menu';document.getElementById('exo').style.display='none';document.getElementById('menu').style.display='block';window.scrollTo(0,0);}
+function refreshUI(){const ex=EX[idx];
+  document.getElementById('cnt').textContent='Exercice '+(idx+1)+'/'+EX.length+' — '+'★'.repeat(ex.s);
+  document.getElementById('stmt').innerHTML='<b>'+ex.t+'.</b> '+ex.st;
+  const rs=document.getElementById('rowSl');
+  if(ex.sl){rs.style.display='flex';const s=document.getElementById('sl');s.min=ex.sl.min;s.max=ex.sl.max;s.step=ex.sl.step;s.value=ex.sl.val;
+    document.getElementById('slLab').textContent=ex.sl.lab;document.getElementById('slV').textContent=ex.sl.val+ex.sl.unit;}
+  else rs.style.display='none';updateInfo();}
+function updateInfo(){const ex=EX[idx];document.getElementById('info').innerHTML=reveal?ex.sol():'À toi : cherche le moment sur papier, puis clique « Voir la solution » pour la décomposition animée.';}
+function go(d){idx=(idx+EX.length+d)%EX.length;reveal=false;p=0;document.getElementById('bSol').className='btn';document.getElementById('bSol').textContent='Voir la solution';refreshUI();}
+function toggleSol(){reveal=!reveal;p=0;const b=document.getElementById('bSol');b.className=reveal?'btn on':'btn';b.textContent=reveal?'Cacher la solution':'Voir la solution';updateInfo();}
+document.getElementById('sl').addEventListener('input',e=>{const ex=EX[idx];if(!ex.sl)return;ex.sl.val=parseFloat(e.target.value);document.getElementById('slV').textContent=ex.sl.val+ex.sl.unit;if(reveal)updateInfo();});
+window.addEventListener('keydown',e=>{if(view!=='exo')return;if(e.key==='ArrowRight')go(1);if(e.key==='ArrowLeft')go(-1);if(e.key==='Escape')backMenu();});
+function loop(){if(view==='exo'){syncSize();tGlob++;ctx.clearRect(0,0,W,H);ctx.fillStyle='#fff';ctx.fillRect(0,0,W,H);if(reveal&&p<1)p=Math.min(1,p+0.03);EX[idx].draw(p);}requestAnimationFrame(loop);}
+buildMenu();loop();
+</script>
